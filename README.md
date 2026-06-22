@@ -18,6 +18,9 @@ A single self-contained Python script (`whatsapp_chat_viewer.py`) that reads a W
 
 - 🟢 **Authentic WhatsApp interface** — chat bubbles, sender colors, date dividers, system-message badges, and a familiar dark/light theme.
 - 📅 **Date-range / time-frame viewing** — pick a **From → To** month, or use one-tap quick filters: **Last Month**, **Last 3 Months**, **Last 6 Months**, **All Messages**.
+- 🔎 **In-chat search** — a WhatsApp-style search bar (🔍) highlights every match in the loaded messages, shows an **"n of m"** counter, and lets you jump between matches with the up/down arrows or **Enter** / **Shift+Enter**.
+- 👤 **Filter by participant** — narrow the view to a single person from the **Who** dropdown (or by tapping their name in the info panel); the header shows how many of their messages are in range.
+- 📊 **Statistics & chat info** — a slide-in panel (📊, or tap the chat name) shows total messages, a media breakdown (images / videos / audio / documents), the date range, and a ranked, clickable list of participants with per-person message counts and activity bars.
 - 🚀 **Handles massive chats (1–10 GB+)** — messages are split into **per-month chunks** that load **on demand**, so the page stays fast even for years of history.
 - 🧩 **No CORS errors** — chunks are emitted as `.js` files (not `.json`), so the viewer works straight from `file://` by **double-clicking**, with no local web server required.
 - 🖼️ **Rich media support** — inline **images** (with auto thumbnails), **video** & **audio** players, and **document** cards (PDF, DOCX, XLSX, PPTX, ZIP, VCF, and more) with type-colored icons.
