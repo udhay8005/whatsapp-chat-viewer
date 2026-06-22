@@ -108,16 +108,39 @@ Double-click the generated **`chat_viewer.html`** inside your export folder. Pic
 
 ---
 
-## 🗂️ Supported Attachment Types
+## 🗂️ Supported Attachments
 
-| Category    | Extensions (examples) |
-|-------------|-----------------------|
-| 🖼️ Images   | `jpg`, `jpeg`, `png`, `gif`, `webp`, `bmp`, `tiff`, `heic`, `svg`, `ico` |
-| 🎬 Videos   | `mp4`, `mkv`, `avi`, `mov`, `3gp`, `m4v`, `webm`, `flv`, `wmv` |
-| 🎵 Audio    | `mp3`, `opus`, `m4a`, `aac`, `amr`, `flac`, `ogg`, `wav`, `wma` |
-| 📄 Documents| `pdf`, `doc`, `docx`, `xls`, `xlsx`, `ppt`, `pptx`, `txt`, `zip`, `rar`, `7z`, `vcf`, `csv`, `epub`, `apk`, `html` |
+**Every file referenced in the chat is shown.** Anything WhatsApp tags with `(file attached)` appears in the viewer regardless of its extension — the only difference is *how* each type is presented:
 
-> Images get auto-generated thumbnails (Pillow). Small audio/video (<2 MB) is embedded directly; larger files are referenced from the folder so they stream on demand.
+| Displayed as | Extensions |
+|---|---|
+| 🖼️ **Inline image** (with thumbnail) | `jpg`, `jpeg`, `png`, `gif`, `webp` |
+| 🎬 **Inline video player** | `mp4`, `mkv`, `avi`, `mov`, `3gp`, `m4v`, `webm`, `3g2`, `rmvb` |
+| 🎵 **Audio player** | `mp3`, `opus`, `m4a`, `m4r`, `aac`, `amr`, `flac`, `ogg`, `wav` |
+| 📄 **Download card** (typed icon + link) | `pdf`, `doc`, `docx`, `xls`, `xlsx`, `ppt`, `pptx`, `txt`, `zip`, `vcf`, `html`, `epub` — **plus any other extension**, including `rar`, `7z`, `csv`, `apk`, `heic`, `bmp`, `tiff`, `svg`, `wma`, etc. |
+
+> **Browser playback:** only some formats play in-browser — `mp4` / `webm` video and `mp3` / `ogg` / `wav` / `m4a` audio play virtually everywhere; others (e.g. `mkv`, `avi`, `flac`, `amr`) get a player that may or may not play depending on your browser. Types that have no inline view (`heic`, `bmp`, `tiff`, `svg`, `wma`, and anything unlisted above) appear as a download card instead.
+
+> Inline images get an auto-generated thumbnail (needs **Pillow**). Small audio/video (< 2 MB) is embedded directly in the page; larger files are linked from the folder so they stream on demand.
+
+### How files are detected
+
+Attachments are found three ways, so oddly-named files still work:
+
+1. **WhatsApp's `(file attached)` marker** — matches **any** extension.
+2. **Matching against the media files actually present** in the export folder.
+3. **An extension heuristic** for filenames at the end of a line.
+
+Methods 2 and 3 recognize this extension set:
+
+```
+Images : jpg jpeg png gif webp bmp tiff tif svg ico heic heif
+Videos : mp4 mkv avi mov 3gp m4v webm 3g2 rmvb flv wmv ts vob
+Audio  : mp3 opus m4a m4r aac amr flac ogg wav wma
+Docs   : pdf doc docx xls xlsx ppt pptx txt html epub zip vcf csv rtf rar 7z tar gz apk ics json xml
+```
+
+> If a referenced file isn't in the folder, the message still shows a clear **"File not available"** placeholder instead of breaking.
 
 ---
 
