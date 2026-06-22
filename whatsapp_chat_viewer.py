@@ -146,9 +146,17 @@ class WhatsAppSmartViewer:
         return 'document'
     
     def is_system_message(self, content):
-        """Check if system message"""
+        """Check if system message.
+
+        Genuine WhatsApp group notices (created group, members added/removed,
+        etc.) have no "Sender:" prefix and are already flagged structurally
+        while parsing. This check only needs to catch system phrases that DO
+        appear on a sender line (e.g. deleted messages), so we match specific
+        phrases rather than bare words like "added"/"left"/"removed" — those
+        occur in normal chat and previously caused false positives.
+        """
         patterns = [
-            r'created group', r'added you', r'added', r'left', r'removed',
+            r'created group', r'added you',
             r'changed the subject', r'changed this group\'s icon',
             r'Messages and calls are end-to-end encrypted',
             r'deleted this message', r'This message was deleted'
@@ -250,9 +258,12 @@ class WhatsAppSmartViewer:
                 message['content'] = '\n'.join(lines).strip()
             message['content'] = re.sub(r'\(file attached\)', '', message['content']).strip()
         
-        # Handle <Media omitted>
+        # Handle <Media omitted> — media that WhatsApp did not include in the
+        # export. Flag it so the viewer can show a "Media omitted" placeholder
+        # instead of rendering an empty bubble.
         if '<Media omitted>' in message['content']:
             message['content'] = message['content'].replace('<Media omitted>', '').strip()
+            message['media_omitted'] = True
         
         if not message['content']:
             return
@@ -376,6 +387,11 @@ class WhatsAppSmartViewer:
     
     def _save_message(self, message):
         """Save message"""
+        # Strip the "edited" marker WhatsApp appends and flag it instead, so the
+        # viewer can show a subtle "Edited" tag rather than literal marker text.
+        if message.get('content') and '<This message was edited>' in message['content']:
+            message['content'] = message['content'].replace('<This message was edited>', '').strip()
+            message['edited'] = True
         self.messages_by_month[message['year_month']].append(message)
         self.statistics['total_messages'] += 1
     
@@ -704,6 +720,19 @@ class WhatsAppSmartViewer:
             max-width: 100%;
             display: block;
             border-radius: 7.5px;
+        }}
+
+        .media-omitted {{
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 0.7rem;
+            margin: 0.3rem 0;
+            background: rgba(0, 0, 0, 0.12);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-style: italic;
+            color: var(--text-secondary);
         }}
 
         .doc-attachment {{
@@ -1056,6 +1085,18 @@ class WhatsAppSmartViewer:
             setupEvents();
         }}
 
+        // Escape text before putting it into innerHTML, so message text and
+        // file names containing < > & " ' render literally instead of being
+        // interpreted as HTML.
+        function escapeHtml(s) {{
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }}
+
         function populateDropdowns() {{
             const startSel = document.getElementById('startMonth');
             const endSel = document.getElementById('endMonth');
@@ -1154,7 +1195,10 @@ class WhatsAppSmartViewer:
                     const sys = document.createElement('div');
                     sys.className = 'system-message';
                     const text = msg.sender ? `${{msg.sender}}: ${{msg.content}}` : msg.content;
-                    sys.innerHTML = `<div class="system-badge">${{text}}</div>`;
+                    const sysBadge = document.createElement('div');
+                    sysBadge.className = 'system-badge';
+                    sysBadge.textContent = text;
+                    sys.appendChild(sysBadge);
                     container.appendChild(sys);
                 }} else {{
                     const wrapper = document.createElement('div');
@@ -1192,10 +1236,10 @@ class WhatsAppSmartViewer:
                             const missingCard = document.createElement('div');
                             missingCard.className = 'doc-attachment';
                             missingCard.style.opacity = '0.7';
-                            missingCard.innerHTML = 
-                                `<div class="doc-icon ${{ext}}">${{typeEmoji}} ${{iconLabel}}</div>` +
+                            missingCard.innerHTML =
+                                `<div class="doc-icon ${{escapeHtml(ext)}}">${{typeEmoji}} ${{escapeHtml(iconLabel)}}</div>` +
                                 `<div class="doc-info">` +
-                                    `<div class="doc-name">${{att.filename}}</div>` +
+                                    `<div class="doc-name">${{escapeHtml(att.filename)}}</div>` +
                                     `<div class="doc-size">File not available</div>` +
                                 `</div>`;
                             attDiv.appendChild(missingCard);
@@ -1241,8 +1285,8 @@ class WhatsAppSmartViewer:
                             attDiv.className = 'audio-player';
                             const audioSrc = att.full_path || (att.data ? 'data:' + att.mime_type + ';base64,' + att.data : '');
                             attDiv.innerHTML = '<button class="audio-btn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>' +
-                                '<div class="audio-progress"><div>🎵 ' + att.filename + '</div><div class="audio-time">0:00</div></div>' +
-                                '<audio style="display:none;"><source src="' + audioSrc + '" type="' + att.mime_type + '"></audio>';
+                                '<div class="audio-progress"><div>🎵 ' + escapeHtml(att.filename) + '</div><div class="audio-time">0:00</div></div>' +
+                                '<audio style="display:none;"><source src="' + escapeHtml(audioSrc) + '" type="' + escapeHtml(att.mime_type) + '"></audio>';
                         }} else if (att.type === 'document') {{
                             // Document attachment rendering
                             const ext = att.filename.split('.').pop().toLowerCase();
@@ -1261,11 +1305,11 @@ class WhatsAppSmartViewer:
                             docLink.href = att.full_path || '#';
                             docLink.target = '_blank';
                             docLink.onclick = (e) => {{ e.stopPropagation(); }};
-                            docLink.innerHTML = 
-                                `<div class="doc-icon ${{iconClass}}">${{iconLabel}}</div>` +
+                            docLink.innerHTML =
+                                `<div class="doc-icon ${{escapeHtml(iconClass)}}">${{escapeHtml(iconLabel)}}</div>` +
                                 `<div class="doc-info">` +
-                                    `<div class="doc-name">${{att.filename}}</div>` +
-                                    `<div class="doc-size">${{att.size_formatted}} · ${{ext.toUpperCase()}}</div>` +
+                                    `<div class="doc-name">${{escapeHtml(att.filename)}}</div>` +
+                                    `<div class="doc-size">${{escapeHtml(att.size_formatted)}} · ${{escapeHtml(ext.toUpperCase())}}</div>` +
                                 `</div>` +
                                 `<div class="doc-download">📥</div>`;
                             attDiv.appendChild(docLink);
@@ -1273,6 +1317,14 @@ class WhatsAppSmartViewer:
                         
                         bubble.appendChild(attDiv);
                     }});
+
+                    // Placeholder for media WhatsApp did not include in the export
+                    if (msg.media_omitted) {{
+                        const omitted = document.createElement('div');
+                        omitted.className = 'media-omitted';
+                        omitted.textContent = '📎 Media omitted';
+                        bubble.appendChild(omitted);
+                    }}
 
                     // Then render text content (if any and not just filename)
                     if (msg.content.trim()) {{
@@ -1284,7 +1336,7 @@ class WhatsAppSmartViewer:
 
                     const meta = document.createElement('div');
                     meta.className = 'message-meta';
-                    meta.innerHTML = `<span>${{msg.time}}</span>`;
+                    meta.textContent = (msg.edited ? 'Edited · ' : '') + msg.time;
                     bubble.appendChild(meta);
                     
                     wrapper.appendChild(bubble);
